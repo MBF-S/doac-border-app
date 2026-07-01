@@ -225,4 +225,57 @@ final class FrameRendererTests: XCTestCase {
         let leftEdge = rep.colorAt(x: layout.left + 2, y: layout.top + holeH / 2)!
         XCTAssertGreaterThan(leftEdge.blueComponent, 0.7, "left edge should show photo content (no pillarbox)")
     }
+
+    /// Page mode (A4/A5) is the code path with the most flip operations: a
+    /// placement flip in BorderedImage.make() on top of the hole flip in
+    /// FrameRenderer.render(). It's also untested with template V2 or with
+    /// a non-centered `position`. A centered/default position can't catch a
+    /// broken placement flip, because a perfectly-centered rect is
+    /// symmetric under that flip whether or not it's correct -- so this
+    /// test uses an extreme cover+pan position, which forces an asymmetric
+    /// vertical offset that a wrong-signed flip would visibly get wrong.
+    func testBorderedImageA5V2PreservesOrientationUnderPan() throws {
+        let svgURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Resources/Template border V2.svg")
+
+        // A5+V2 hole geometry for a portrait photo (width < height).
+        let probe = FrameLayout.make(mode: .a5, imageSize: CGSize(width: 1, height: 2), spec: .v2)
+        let holeW = probe.holeWidth, holeH = probe.holeHeight
+
+        // Photo exactly as wide as the hole (no horizontal overflow) but 3x
+        // taller, so cover mode (zoom: 1) scales it to exactly fill the
+        // hole's width while overflowing 2x the hole's height. An extreme
+        // panY (0 or 1) then shows only the photo's top band or only its
+        // bottom band -- each entirely within one color half of the
+        // quadrant photo, so the sampled colors are unambiguous.
+        let photoWidth = holeW, photoHeight = holeH * 3
+        let photo = makeQuadrantImage(width: photoWidth, height: photoHeight)
+
+        let layout = FrameLayout.make(mode: .a5, imageSize: CGSize(width: photoWidth, height: photoHeight), spec: .v2)
+        let qx1 = layout.left + photoWidth / 4, qx2 = layout.left + (3 * photoWidth) / 4
+        let sampleY = layout.top + layout.holeHeight / 2
+        let tol = 10.0 / 255.0
+
+        func assertBand(panY: CGFloat, left: (Double, Double, Double), right: (Double, Double, Double), _ label: String) throws {
+            let position = PositionState(zoom: 1, panX: 0.5, panY: panY)
+            let result = try BorderedImage.make(photo: photo, mode: .a5, spec: .v2, svgURL: svgURL, position: position)
+            let rep = NSBitmapImageRep(cgImage: result)
+            func assertColor(_ x: Int, _ r: Double, _ g: Double, _ b: Double, _ side: String) {
+                guard let c = rep.colorAt(x: x, y: sampleY) else { XCTFail("no color at \(side) (\(label))"); return }
+                XCTAssertEqual(Double(c.redComponent), r, accuracy: tol, "\(side) red (\(label))")
+                XCTAssertEqual(Double(c.greenComponent), g, accuracy: tol, "\(side) green (\(label))")
+                XCTAssertEqual(Double(c.blueComponent), b, accuracy: tol, "\(side) blue (\(label))")
+            }
+            assertColor(qx1, left.0, left.1, left.2, "left")
+            assertColor(qx2, right.0, right.1, right.2, "right")
+        }
+
+        // panY: 0 -- top of the (top-left-authored) placement rect aligns
+        // with the hole's top, showing the photo's top band (red/green).
+        try assertBand(panY: 0, left: (1, 0, 0), right: (0, 1, 0), "top band")
+        // panY: 1 -- bottom of the placement rect aligns with the hole's
+        // bottom, showing the photo's bottom band (blue/yellow).
+        try assertBand(panY: 1, left: (0, 0, 1), right: (1, 1, 0), "bottom band")
+    }
 }
