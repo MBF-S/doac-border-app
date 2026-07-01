@@ -1,0 +1,5 @@
+.DS_Store
+.build/
+*.xcodeproj
+DOACBorderApp/.build/
+DOACBorderApp/.swiftpm/
