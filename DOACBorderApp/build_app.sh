@@ -33,3 +33,7 @@ PLIST
 
 codesign --force --deep -s - "$APP_DIR"
 echo "Built $APP_DIR"
+
+rm -f "$APP_NAME.zip"
+zip -r -q "$APP_NAME.zip" "$APP_DIR"
+echo "Zipped $APP_NAME.zip"
