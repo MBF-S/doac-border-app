@@ -1,0 +1,143 @@
+import SwiftUI
+import UniformTypeIdentifiers
+
+struct ContentView: View {
+    @StateObject private var state = AppState()
+    @State private var isDragging = false
+    @State private var dragStartPan = CGPoint(x: 0.5, y: 0.5)
+
+    var body: some View {
+        VStack(spacing: 12) {
+            preview
+            controls
+            if let msg = state.errorMessage {
+                Text(msg).foregroundColor(.red).font(.caption)
+            }
+        }
+        .padding()
+        .frame(minWidth: 520, minHeight: 560)
+        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+            guard let provider = providers.first else { return false }
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                if let url {
+                    DispatchQueue.main.async { state.load(url: url) }
+                }
+            }
+            return true
+        }
+    }
+
+    private var preview: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.1))
+            if let rendered = state.rendered {
+                GeometryReader { geo in
+                    Image(decorative: rendered, scale: 1, orientation: .up)
+                        .resizable()
+                        .scaledToFit()
+                        .padding(8)
+                        .contentShape(Rectangle())
+                        .gesture(dragToRepositionGesture(viewSize: geo.size))
+                }
+            } else {
+                VStack(spacing: 8) {
+                    Text("Drop an image here").foregroundColor(.secondary)
+                    Button("Choose Image…") { chooseFile() }
+                }
+            }
+        }
+        .frame(minHeight: 360)
+    }
+
+    // Drag-to-reposition: the image follows the finger/cursor (Photos.app-style
+    // crop dragging), so the pan value — which represents how far into the
+    // image the visible window looks — moves opposite the drag direction.
+    // Only active in A4/A5 modes, matching where positioning is meaningful.
+    private func dragToRepositionGesture(viewSize: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                guard state.mode != .free, viewSize.width > 0, viewSize.height > 0 else { return }
+                if !isDragging {
+                    isDragging = true
+                    dragStartPan = CGPoint(x: state.position.panX, y: state.position.panY)
+                }
+                let dx = value.translation.width / viewSize.width
+                let dy = value.translation.height / viewSize.height
+                state.position.panX = min(max(dragStartPan.x - dx, 0), 1)
+                state.position.panY = min(max(dragStartPan.y - dy, 0), 1)
+                state.rerender()
+            }
+            .onEnded { _ in isDragging = false }
+    }
+
+    private var controls: some View {
+        VStack(spacing: 8) {
+            Picker("Template", selection: $state.template) {
+                ForEach(TemplateSpec.all, id: \.name) { spec in
+                    Text(spec.name).tag(spec)
+                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: state.template) { _ in state.rerender() }
+
+            Picker("Mode", selection: $state.mode) {
+                Text("Free size").tag(PageMode.free)
+                Text("A4").tag(PageMode.a4)
+                Text("A5").tag(PageMode.a5)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: state.mode) { _ in state.rerender() }
+
+            if state.mode != .free {
+                positioning
+            }
+
+            HStack {
+                Button("Choose Image…") { chooseFile() }
+                Spacer()
+                Button("Export…") { export() }
+                    .disabled(state.rendered == nil)
+            }
+        }
+    }
+
+    private var positioning: some View {
+        VStack {
+            HStack { Text("Zoom"); Slider(value: $state.position.zoom, in: 0...1) }
+            Text("Drag the preview image to reposition").font(.caption).foregroundColor(.secondary)
+        }
+        .onChange(of: state.position) { _ in state.rerender() }
+    }
+
+    private func chooseFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.png, .jpeg, .tiff]
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            state.load(url: url)
+        }
+    }
+
+    private func export() {
+        guard let rendered = state.rendered, let sourceURL = state.photoURL else { return }
+        let suffix: String
+        switch state.mode {
+        case .free: suffix = "bordered"
+        case .a4: suffix = "a4"
+        case .a5: suffix = "a5"
+        }
+        let defaultName = sourceURL.deletingPathExtension().lastPathComponent + "_\(suffix).png"
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.png]
+        panel.nameFieldStringValue = defaultName
+        panel.directoryURL = sourceURL.deletingLastPathComponent()
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            try Exporter.writePNG(rendered, to: url)
+        } catch {
+            state.errorMessage = "Export failed: \(error)"
+        }
+    }
+}
