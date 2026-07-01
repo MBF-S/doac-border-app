@@ -3,3 +3,4 @@
 *.xcodeproj
 DOACBorderApp/.build/
 DOACBorderApp/.swiftpm/
+.worktrees/
