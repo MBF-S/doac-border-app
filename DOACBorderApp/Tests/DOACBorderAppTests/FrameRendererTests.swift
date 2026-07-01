@@ -3,6 +3,32 @@ import CoreGraphics
 import AppKit
 @testable import DOACBorderApp
 
+/// Builds a quadrant-colored CGImage: red=top-left, green=top-right,
+/// blue=bottom-left, yellow=bottom-right (as read via NSBitmapImageRep,
+/// top-left origin). Same fill pattern as
+/// testRenderPreservesHoleContentOrientation, factored out so the
+/// BorderedImage tests below can reuse it instead of reinventing it.
+private func makeQuadrantImage(width: Int, height: Int) -> CGImage {
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
+    let ctx = CGContext(
+        data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+        space: colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!
+    func col(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat) -> CGColor {
+        CGColor(colorSpace: colorSpace, components: [r, g, b, 1])!
+    }
+    let halfW = CGFloat(width) / 2, halfH = CGFloat(height) / 2
+    ctx.setFillColor(col(1, 0, 0))
+    ctx.fill(CGRect(x: 0, y: halfH, width: halfW, height: halfH))       // red: top-left
+    ctx.setFillColor(col(0, 1, 0))
+    ctx.fill(CGRect(x: halfW, y: halfH, width: halfW, height: halfH))   // green: top-right
+    ctx.setFillColor(col(0, 0, 1))
+    ctx.fill(CGRect(x: 0, y: 0, width: halfW, height: halfH))           // blue: bottom-left
+    ctx.setFillColor(col(1, 1, 0))
+    ctx.fill(CGRect(x: halfW, y: 0, width: halfW, height: halfH))       // yellow: bottom-right
+    return ctx.makeImage()!
+}
+
 final class FrameRendererTests: XCTestCase {
     func testRenderProducesExactCanvasSizeAndOpaqueCorners() throws {
         let svgURL = URL(fileURLWithPath: #filePath)
@@ -107,25 +133,57 @@ final class FrameRendererTests: XCTestCase {
         assertColor(qx2, qy2, 1, 1, 0, "bottom-right (expected yellow)")
     }
 
+    /// Free mode must show the whole photo, uncropped and centered, as if
+    /// `position` were never consulted. Proves this with a quadrant-colored
+    /// photo: renders once with `.auto` and once with an extreme
+    /// zoomed/panned `PositionState` that would visibly crop/shift the image
+    /// if it were honored, then checks all four quadrants land correctly in
+    /// BOTH renders -- i.e. the non-default position has zero effect.
     func testBorderedImageFreeModeIgnoresPositionAndShowsWholeImage() throws {
         let pw = 400, ph = 300
-        guard let ctx = CGContext(data: nil, width: pw, height: ph, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { XCTFail(); return }
-        ctx.setFillColor(CGColor(red: 0.2, green: 0.6, blue: 0.2, alpha: 1))
-        ctx.fill(CGRect(x: 0, y: 0, width: pw, height: ph))
-        let photo = ctx.makeImage()!
+        let photo = makeQuadrantImage(width: pw, height: ph)
 
         let svgURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("Resources/Template border V1.svg")
 
-        let result = try BorderedImage.make(photo: photo, mode: .free, spec: .v1, svgURL: svgURL)
+        let extremePosition = PositionState(zoom: 1, panX: 0, panY: 0)
+        let autoResult = try BorderedImage.make(photo: photo, mode: .free, spec: .v1, svgURL: svgURL, position: .auto)
+        let zoomedResult = try BorderedImage.make(photo: photo, mode: .free, spec: .v1, svgURL: svgURL, position: extremePosition)
+
         let layout = FrameLayout.make(mode: .free, imageSize: CGSize(width: pw, height: ph), spec: .v1)
-        XCTAssertEqual(result.width, layout.canvasWidth)
-        XCTAssertEqual(result.height, layout.canvasHeight)
+        XCTAssertEqual(autoResult.width, layout.canvasWidth)
+        XCTAssertEqual(autoResult.height, layout.canvasHeight)
+        XCTAssertEqual(zoomedResult.width, layout.canvasWidth)
+        XCTAssertEqual(zoomedResult.height, layout.canvasHeight)
+
+        let qx1 = layout.left + pw / 4, qx2 = layout.left + (3 * pw) / 4
+        let qy1 = layout.top + ph / 4, qy2 = layout.top + (3 * ph) / 4
+        let tol = 10.0 / 255.0
+
+        for (result, label) in [(autoResult, "auto"), (zoomedResult, "zoomed/panned")] {
+            let rep = NSBitmapImageRep(cgImage: result)
+            func assertColor(_ x: Int, _ y: Int, _ r: Double, _ g: Double, _ b: Double, _ corner: String) {
+                guard let c = rep.colorAt(x: x, y: y) else { XCTFail("no color at \(corner) (\(label))"); return }
+                XCTAssertEqual(Double(c.redComponent), r, accuracy: tol, "\(corner) red (\(label))")
+                XCTAssertEqual(Double(c.greenComponent), g, accuracy: tol, "\(corner) green (\(label))")
+                XCTAssertEqual(Double(c.blueComponent), b, accuracy: tol, "\(corner) blue (\(label))")
+            }
+            assertColor(qx1, qy1, 1, 0, 0, "top-left (expected red)")
+            assertColor(qx2, qy1, 0, 1, 0, "top-right (expected green)")
+            assertColor(qx1, qy2, 0, 0, 1, "bottom-left (expected blue)")
+            assertColor(qx2, qy2, 1, 1, 0, "bottom-right (expected yellow)")
+        }
     }
 
+    /// Page modes must contain-fit the photo into the hole: when the photo's
+    /// aspect ratio doesn't match the hole's, the result is letterboxed
+    /// (white gutter bars), never stretched to fill and never cropped.
+    /// Uses a 3:1 wide photo against an A5 hole (~1.42:1 landscape once the
+    /// layout swaps to match the photo's orientation) so the mismatch forces
+    /// visible top/bottom letterboxing.
     func testBorderedImagePageModeLetterboxes() throws {
-        let pw = 400, ph = 300
+        let pw = 900, ph = 300
         guard let ctx = CGContext(data: nil, width: pw, height: ph, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { XCTFail(); return }
         ctx.setFillColor(CGColor(red: 0.2, green: 0.2, blue: 0.9, alpha: 1))
         ctx.fill(CGRect(x: 0, y: 0, width: pw, height: ph))
@@ -139,5 +197,32 @@ final class FrameRendererTests: XCTestCase {
         let layout = FrameLayout.make(mode: .a5, imageSize: CGSize(width: pw, height: ph), spec: .v1)
         XCTAssertEqual(result.width, layout.canvasWidth)
         XCTAssertEqual(result.height, layout.canvasHeight)
+
+        let rep = NSBitmapImageRep(cgImage: result)
+        let holeW = layout.holeWidth, holeH = layout.holeHeight
+
+        // Center of the hole: the photo's own blue should be present.
+        let center = rep.colorAt(x: layout.left + holeW / 2, y: layout.top + holeH / 2)!
+        XCTAssertGreaterThan(center.blueComponent, 0.7, "center should show photo content")
+        XCTAssertLessThan(center.redComponent, 0.5, "center should not be white gutter")
+
+        // Near the top and bottom edges of the hole: the 3:1 photo is far
+        // wider than the hole, so contain-fit must leave a letterbox gutter
+        // there -- these pixels should be the white gutter fill, not photo
+        // content (proves it's not stretched to fill and not cropped).
+        let margin = max(2, holeH / 20)
+        let topGutter = rep.colorAt(x: layout.left + holeW / 2, y: layout.top + margin)!
+        let bottomGutter = rep.colorAt(x: layout.left + holeW / 2, y: layout.top + holeH - margin)!
+        for (label, c) in [("top", topGutter), ("bottom", bottomGutter)] {
+            XCTAssertGreaterThan(c.redComponent, 0.9, "\(label) gutter should be white")
+            XCTAssertGreaterThan(c.greenComponent, 0.9, "\(label) gutter should be white")
+            XCTAssertGreaterThan(c.blueComponent, 0.9, "\(label) gutter should be white")
+        }
+
+        // Near the left edge at vertical mid-height: contain-fit scales to
+        // fill the hole's full width, so the photo should reach edge-to-edge
+        // horizontally (no pillarboxing / no crop of the width).
+        let leftEdge = rep.colorAt(x: layout.left + 2, y: layout.top + holeH / 2)!
+        XCTAssertGreaterThan(leftEdge.blueComponent, 0.7, "left edge should show photo content (no pillarbox)")
     }
 }
