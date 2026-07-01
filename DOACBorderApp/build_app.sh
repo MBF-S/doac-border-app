@@ -5,13 +5,22 @@ cd "$(dirname "$0")"
 APP_NAME="DOAC Border"
 BUNDLE_ID="com.doac.borderapp"
 
-swift build -c release
+# Build each arch separately and lipo them into a universal binary. (A single
+# `swift build --arch arm64 --arch x86_64` invocation would be simpler, but it
+# routes through SwiftPM's xcbuild-based multi-arch build system, which emits
+# Make-style .d dependency files that mis-parse any colon in the checkout
+# path -- broken on machines whose path contains one, as this one does.)
+swift build -c release --arch arm64
+swift build -c release --arch x86_64
 
 APP_DIR="$APP_NAME.app"
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
-cp ".build/release/DOACBorderApp" "$APP_DIR/Contents/MacOS/$APP_NAME"
+lipo -create \
+    ".build/arm64-apple-macosx/release/DOACBorderApp" \
+    ".build/x86_64-apple-macosx/release/DOACBorderApp" \
+    -output "$APP_DIR/Contents/MacOS/$APP_NAME"
 cp "Resources/Template border V1.svg" "$APP_DIR/Contents/Resources/"
 cp "Resources/Template border V2.svg" "$APP_DIR/Contents/Resources/"
 
