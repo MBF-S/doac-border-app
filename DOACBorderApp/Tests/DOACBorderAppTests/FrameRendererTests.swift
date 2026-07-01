@@ -106,4 +106,38 @@ final class FrameRendererTests: XCTestCase {
         assertColor(qx1, qy2, 0, 0, 1, "bottom-left (expected blue)")
         assertColor(qx2, qy2, 1, 1, 0, "bottom-right (expected yellow)")
     }
+
+    func testBorderedImageFreeModeIgnoresPositionAndShowsWholeImage() throws {
+        let pw = 400, ph = 300
+        guard let ctx = CGContext(data: nil, width: pw, height: ph, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { XCTFail(); return }
+        ctx.setFillColor(CGColor(red: 0.2, green: 0.6, blue: 0.2, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: pw, height: ph))
+        let photo = ctx.makeImage()!
+
+        let svgURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Resources/Template border V1.svg")
+
+        let result = try BorderedImage.make(photo: photo, mode: .free, spec: .v1, svgURL: svgURL)
+        let layout = FrameLayout.make(mode: .free, imageSize: CGSize(width: pw, height: ph), spec: .v1)
+        XCTAssertEqual(result.width, layout.canvasWidth)
+        XCTAssertEqual(result.height, layout.canvasHeight)
+    }
+
+    func testBorderedImagePageModeLetterboxes() throws {
+        let pw = 400, ph = 300
+        guard let ctx = CGContext(data: nil, width: pw, height: ph, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { XCTFail(); return }
+        ctx.setFillColor(CGColor(red: 0.2, green: 0.2, blue: 0.9, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: pw, height: ph))
+        let photo = ctx.makeImage()!
+
+        let svgURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Resources/Template border V1.svg")
+
+        let result = try BorderedImage.make(photo: photo, mode: .a5, spec: .v1, svgURL: svgURL)
+        let layout = FrameLayout.make(mode: .a5, imageSize: CGSize(width: pw, height: ph), spec: .v1)
+        XCTAssertEqual(result.width, layout.canvasWidth)
+        XCTAssertEqual(result.height, layout.canvasHeight)
+    }
 }
