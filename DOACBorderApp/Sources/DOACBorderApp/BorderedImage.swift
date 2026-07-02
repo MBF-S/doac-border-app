@@ -32,6 +32,6 @@ enum BorderedImage {
         holeCtx.draw(photo, in: flippedPlacement)
         guard let holeContent = holeCtx.makeImage() else { throw FrameRenderer.RenderError.finalImageFailed }
 
-        return try FrameRenderer.render(holeContent: holeContent, layout: layout, svgURL: svgURL)
+        return try FrameRenderer.render(holeContent: holeContent, layout: layout, spec: spec, svgURL: svgURL)
     }
 }

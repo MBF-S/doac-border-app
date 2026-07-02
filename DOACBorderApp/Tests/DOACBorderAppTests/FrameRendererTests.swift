@@ -46,7 +46,7 @@ final class FrameRendererTests: XCTestCase {
         let holeContent = holeCtx.makeImage()!
 
         let layout = FrameLayout.make(mode: .free, imageSize: CGSize(width: holeWidth, height: holeHeight), spec: .v1)
-        let result = try FrameRenderer.render(holeContent: holeContent, layout: layout, svgURL: svgURL)
+        let result = try FrameRenderer.render(holeContent: holeContent, layout: layout, spec: .v1, svgURL: svgURL)
 
         XCTAssertEqual(result.width, layout.canvasWidth)
         XCTAssertEqual(result.height, layout.canvasHeight)
@@ -108,7 +108,7 @@ final class FrameRendererTests: XCTestCase {
         let holeContent = holeCtx.makeImage()!
 
         let layout = FrameLayout.make(mode: .free, imageSize: CGSize(width: holeWidth, height: holeHeight), spec: .v1)
-        let result = try FrameRenderer.render(holeContent: holeContent, layout: layout, svgURL: svgURL)
+        let result = try FrameRenderer.render(holeContent: holeContent, layout: layout, spec: .v1, svgURL: svgURL)
         let rep = NSBitmapImageRep(cgImage: result)
 
         // Sample points a quarter/three-quarters of the way across the hole,
