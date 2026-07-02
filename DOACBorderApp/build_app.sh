@@ -4,6 +4,9 @@ cd "$(dirname "$0")"
 
 APP_NAME="DOAC Border"
 BUNDLE_ID="com.doac.borderapp"
+# Bump this and tag a matching `vX.Y` GitHub release (see README) to ship an
+# update -- the in-app "Check for Updates" menu item compares against it.
+APP_VERSION="1.0"
 
 # Build each arch separately and lipo them into a universal binary. (A single
 # `swift build --arch arm64 --arch x86_64` invocation would be simpler, but it
@@ -33,7 +36,7 @@ cat > "$APP_DIR/Contents/Info.plist" << PLIST
     <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
     <key>CFBundleName</key><string>$APP_NAME</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.0</string>
+    <key>CFBundleShortVersionString</key><string>$APP_VERSION</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>NSHighResolutionCapable</key><true/>
 </dict>
