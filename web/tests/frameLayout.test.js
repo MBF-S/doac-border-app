@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeLayout } from '../js/frameLayout.js';
 
-const specV1 = { left: 203, top: 190, right: 235, bottom: 210, bottomRight: 380, wordmarkHeight: 99.455 };
+const specV1 = { left: 203, top: 190, right: 235, bottom: 210, bottomRight: 380, wordmarkHeight: 88.799 };
 
 test('free mode matches validated output', () => {
   // Same inputs as the native app's validated test: 836x534 image, V1, defaults.
@@ -66,7 +66,7 @@ test('wordmark legibility floor protects small custom pages', () => {
   });
   assert.equal(layout.canvasWidth, 945);
   assert.equal(layout.canvasHeight, 945);
-  assert.equal(layout.left, 145);
+  assert.equal(layout.left, 162);
   // printed wordmark height = spec.wordmarkHeight * scale / dpi * 25.4mm >= 6mm
   const printedWordmarkMM = (specV1.wordmarkHeight * layout.scale) / 300 * 25.4;
   assert.ok(printedWordmarkMM >= 6, `expected >=6mm, got ${printedWordmarkMM}`);
