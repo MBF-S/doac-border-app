@@ -1,0 +1,68 @@
+<!-- web/index.html -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DOAC Border</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <div id="preview" class="preview">
+      <canvas id="preview-canvas" class="hidden"></canvas>
+      <div id="drop-hint" class="drop-hint">
+        <p>Drop an image here</p>
+        <button type="button" class="choose-button">Choose Image&hellip;</button>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="segmented" id="template-picker">
+        <button type="button" data-value="v1" class="selected">V1</button>
+        <button type="button" data-value="v2">V2</button>
+      </div>
+
+      <div class="segmented" id="mode-picker">
+        <button type="button" data-value="free" class="selected">Free size</button>
+        <button type="button" data-value="a4">A4</button>
+        <button type="button" data-value="a5">A5</button>
+        <button type="button" data-value="custom">Custom</button>
+      </div>
+
+      <div id="page-settings" class="page-settings hidden">
+        <div id="custom-size-row" class="custom-size-row hidden">
+          <span>Size</span>
+          <input id="custom-width" type="number" min="1" step="0.1" />
+          <span>&times;</span>
+          <input id="custom-height" type="number" min="1" step="0.1" />
+          <div class="segmented segmented-small" id="unit-picker">
+            <button type="button" data-value="cm" class="selected">cm</button>
+            <button type="button" data-value="inch">in</button>
+          </div>
+        </div>
+        <div class="segmented" id="orientation-picker">
+          <button type="button" data-value="portrait" class="selected">Portrait</button>
+          <button type="button" data-value="landscape">Landscape</button>
+        </div>
+      </div>
+
+      <div id="positioning" class="positioning hidden">
+        <span class="hint">Drag or pinch the preview image to reposition and zoom</span>
+        <button id="reset-button" type="button">Reset</button>
+      </div>
+
+      <div class="button-row">
+        <button type="button" class="choose-button">Choose Image&hellip;</button>
+        <button id="export-button" type="button" disabled>Export&hellip;</button>
+      </div>
+    </div>
+
+    <p id="error-message" class="error hidden"></p>
+  </main>
+
+  <input id="file-input" type="file" accept="image/png,image/jpeg,image/tiff" hidden />
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
