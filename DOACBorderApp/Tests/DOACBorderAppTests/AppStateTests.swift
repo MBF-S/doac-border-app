@@ -26,4 +26,11 @@ final class AppStateTests: XCTestCase {
 
         try? FileManager.default.removeItem(at: tmpURL)
     }
+
+    func testSizeUnitRoundTripsThroughMillimeters() {
+        XCTAssertEqual(SizeUnit.cm.fromMM(210), 21, accuracy: 0.001)
+        XCTAssertEqual(SizeUnit.cm.toMM(21), 210, accuracy: 0.001)
+        XCTAssertEqual(SizeUnit.inch.fromMM(25.4), 1, accuracy: 0.001)
+        XCTAssertEqual(SizeUnit.inch.toMM(1), 25.4, accuracy: 0.001)
+    }
 }

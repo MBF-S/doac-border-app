@@ -97,7 +97,12 @@ struct ContentView: View {
                     isPinching = true
                     pinchStartZoom = state.position.zoom
                 }
-                state.position.zoom = min(max(pinchStartZoom * value, 0), PositionState.maxZoom)
+                // value is a multiplicative factor starting at 1.0, not a delta -- so
+                // pinchStartZoom * value is a no-op whenever the starting zoom is 0
+                // (the default/contain state), making pinch do nothing until zoom had
+                // already been nudged away from 0 some other way. Add the relative
+                // change instead, which works from any starting zoom including 0.
+                state.position.zoom = min(max(pinchStartZoom + (value - 1), 0), PositionState.maxZoom)
                 state.rerender()
             }
             .onEnded { _ in isPinching = false }
@@ -137,23 +142,36 @@ struct ContentView: View {
     }
 
     private var positioning: some View {
-        Text("Drag or pinch the preview image to reposition and zoom")
+        HStack {
+            Text("Drag or pinch the preview image to reposition and zoom")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Spacer()
+            Button("Reset") {
+                state.position = .auto
+                state.rerender()
+            }
             .font(.caption)
-            .foregroundColor(.secondary)
+        }
     }
 
     private var pageSettings: some View {
         VStack(spacing: 8) {
             if state.mode == .custom {
                 HStack {
-                    Text("Size (mm)")
-                    TextField("Width", value: $state.customWidthMM, format: .number)
+                    Text("Size")
+                    TextField("Width", value: customWidthBinding, format: .number)
                         .frame(width: 56)
-                        .onChange(of: state.customWidthMM) { _ in state.rerender() }
                     Text("×")
-                    TextField("Height", value: $state.customHeightMM, format: .number)
+                    TextField("Height", value: customHeightBinding, format: .number)
                         .frame(width: 56)
-                        .onChange(of: state.customHeightMM) { _ in state.rerender() }
+                    Picker("Unit", selection: $state.customSizeUnit) {
+                        Text("cm").tag(SizeUnit.cm)
+                        Text("in").tag(SizeUnit.inch)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(width: 90)
                 }
             }
             Picker("Orientation", selection: $state.orientation) {
@@ -163,6 +181,20 @@ struct ContentView: View {
             .pickerStyle(.segmented)
             .onChange(of: state.orientation) { _ in state.rerender() }
         }
+    }
+
+    private var customWidthBinding: Binding<Double> {
+        Binding(
+            get: { state.customSizeUnit.fromMM(state.customWidthMM) },
+            set: { state.customWidthMM = state.customSizeUnit.toMM($0); state.rerender() }
+        )
+    }
+
+    private var customHeightBinding: Binding<Double> {
+        Binding(
+            get: { state.customSizeUnit.fromMM(state.customHeightMM) },
+            set: { state.customHeightMM = state.customSizeUnit.toMM($0); state.rerender() }
+        )
     }
 
     private func chooseFile() {

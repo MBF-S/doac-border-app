@@ -1,5 +1,24 @@
 import SwiftUI
 
+enum SizeUnit: Equatable {
+    case cm
+    case inch
+
+    func fromMM(_ mm: Double) -> Double {
+        switch self {
+        case .cm: return mm / 10
+        case .inch: return mm / 25.4
+        }
+    }
+
+    func toMM(_ value: Double) -> Double {
+        switch self {
+        case .cm: return value * 10
+        case .inch: return value * 25.4
+        }
+    }
+}
+
 @MainActor
 final class AppState: ObservableObject {
     @Published var photoURL: URL?
@@ -10,6 +29,7 @@ final class AppState: ObservableObject {
     @Published var orientation: PageOrientation = .portrait
     @Published var customWidthMM: Double = 210
     @Published var customHeightMM: Double = 297
+    @Published var customSizeUnit: SizeUnit = .cm
     @Published var rendered: CGImage?
     @Published var errorMessage: String?
 
