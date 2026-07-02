@@ -30,7 +30,7 @@ cd web && python3 -m http.server 8000
 then open `http://localhost:8000`. Run the unit tests with:
 
 ```
-node --test web/tests/
+node --test web/tests/*.test.js
 ```
 
 Pushes to `main` that touch `web/**` auto-deploy to GitHub Pages via
