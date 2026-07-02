@@ -32,14 +32,15 @@ def vectorize(png_path: Path, svg_path: Path, tmp_dir: Path):
     opaque = alpha > 127
     black = opaque & (a[:, :, 0] < 128) & (a[:, :, 1] < 128) & (a[:, :, 2] < 128)
 
-    g_white = mask_to_svg_group(opaque, tmp_dir / "opaque.pbm", tmp_dir / "opaque.svg", "#ffffff")
-    g_black = mask_to_svg_group(black, tmp_dir / "black.pbm", tmp_dir / "black.svg", "#000000")
-
     svg = ET.Element(f"{{{NS}}}svg", {
         "width": str(w), "height": str(h), "viewBox": f"0 0 {w} {h}",
     })
-    svg.append(g_white)
-    svg.append(g_black)
+    svg.append(mask_to_svg_group(opaque, tmp_dir / "opaque.pbm", tmp_dir / "opaque.svg", "#ffffff"))
+    # Two-tone border templates also have a black mask layer; a single-color
+    # asset (e.g. a plain logo silhouette) has none, so skip it rather than
+    # tracing an empty mask.
+    if black.any():
+        svg.append(mask_to_svg_group(black, tmp_dir / "black.pbm", tmp_dir / "black.svg", "#000000"))
     ET.ElementTree(svg).write(svg_path, xml_declaration=True, encoding="UTF-8")
     print(f"wrote {svg_path} ({w}x{h})")
 
