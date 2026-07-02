@@ -4,14 +4,13 @@ enum PageMode: Equatable {
     case free
     case a4
     case a5
+    case custom
+}
 
-    var pageSizeMM: (width: Double, height: Double)? {
-        switch self {
-        case .free: return nil
-        case .a4: return (210, 297)
-        case .a5: return (148, 210)
-        }
-    }
+enum PageOrientation: Equatable {
+    case auto      // match the source image's own aspect ratio
+    case portrait
+    case landscape
 }
 
 struct FrameLayout: Equatable {
@@ -27,12 +26,22 @@ struct FrameLayout: Equatable {
     let holeHeight: Int
 
     static func make(mode: PageMode, imageSize: CGSize, spec: TemplateSpec,
+                      customSizeMM: (width: Double, height: Double) = (210, 297),
+                      orientation: PageOrientation = .auto,
                       pct: CGFloat = 0.08, minPx: CGFloat = 60, dpi: CGFloat = 300) -> FrameLayout {
-        guard let mm = mode.pageSizeMM else {
-            return freeForm(imageSize: imageSize, spec: spec, pct: pct, minPx: minPx)
+        let mm: (width: Double, height: Double)
+        switch mode {
+        case .free: return freeForm(imageSize: imageSize, spec: spec, pct: pct, minPx: minPx)
+        case .a4: mm = (210, 297)
+        case .a5: mm = (148, 210)
+        case .custom: mm = customSizeMM
         }
         var mmW = mm.width, mmH = mm.height
-        if imageSize.width > imageSize.height { swap(&mmW, &mmH) }
+        switch orientation {
+        case .auto: if imageSize.width > imageSize.height { swap(&mmW, &mmH) }
+        case .portrait: if mmW > mmH { swap(&mmW, &mmH) }
+        case .landscape: if mmH > mmW { swap(&mmW, &mmH) }
+        }
         let canvasWidth = Int((mmW / 25.4 * dpi).rounded())
         let canvasHeight = Int((mmH / 25.4 * dpi).rounded())
 

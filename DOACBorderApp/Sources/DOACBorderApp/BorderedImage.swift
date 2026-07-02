@@ -3,9 +3,12 @@ import Foundation
 
 enum BorderedImage {
     static func make(photo: CGImage, mode: PageMode, spec: TemplateSpec, svgURL: URL,
-                      position: PositionState = .auto) throws -> CGImage {
+                      position: PositionState = .auto,
+                      customSizeMM: (width: Double, height: Double) = (210, 297),
+                      orientation: PageOrientation = .auto) throws -> CGImage {
         let photoSize = CGSize(width: photo.width, height: photo.height)
-        let layout = FrameLayout.make(mode: mode, imageSize: photoSize, spec: spec)
+        let layout = FrameLayout.make(mode: mode, imageSize: photoSize, spec: spec,
+                                       customSizeMM: customSizeMM, orientation: orientation)
         let holeSize = CGSize(width: layout.holeWidth, height: layout.holeHeight)
 
         let placement: CGRect = mode == .free
