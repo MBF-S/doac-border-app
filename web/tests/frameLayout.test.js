@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeLayout } from '../js/frameLayout.js';
 
-const specV1 = { left: 203, top: 190, right: 235, bottom: 210, bottomRight: 380 };
+const specV1 = { left: 203, top: 190, right: 235, bottom: 210, bottomRight: 380, wordmarkHeight: 99.455 };
 
 test('free mode matches validated output', () => {
   // Same inputs as the native app's validated test: 836x534 image, V1, defaults.
@@ -54,4 +54,27 @@ test('explicit orientation overrides image aspect', () => {
   const layout = makeLayout('a4', { width: 300, height: 600 }, specV1, { orientation: 'landscape' });
   assert.equal(layout.canvasWidth, 3508);
   assert.equal(layout.canvasHeight, 2480);
+});
+
+test('wordmark legibility floor protects small custom pages', () => {
+  // 80x80mm custom page at 300dpi: the pct-based scale (~0.37) would print
+  // the DOAC wordmark under 4mm tall -- the wordmarkHeight-based floor
+  // (targeting >=6mm printed height) must take over instead.
+  const layout = makeLayout('custom', { width: 600, height: 400 }, specV1, {
+    customSizeMM: { width: 80, height: 80 },
+    orientation: 'portrait',
+  });
+  assert.equal(layout.canvasWidth, 945);
+  assert.equal(layout.canvasHeight, 945);
+  assert.equal(layout.left, 145);
+  // printed wordmark height = spec.wordmarkHeight * scale / dpi * 25.4mm >= 6mm
+  const printedWordmarkMM = (specV1.wordmarkHeight * layout.scale) / 300 * 25.4;
+  assert.ok(printedWordmarkMM >= 6, `expected >=6mm, got ${printedWordmarkMM}`);
+});
+
+test('wordmark floor does not shrink an already-generous a4 border', () => {
+  // At A4/300dpi the pct-based scale already exceeds the wordmark floor, so
+  // the floor must not change existing A4 output.
+  const layout = makeLayout('a4', { width: 600, height: 400 }, specV1);
+  assert.equal(layout.left, 198);
 });
