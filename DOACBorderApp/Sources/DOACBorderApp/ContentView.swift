@@ -1,10 +1,13 @@
 import SwiftUI
+import AppKit
 import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var state = AppState()
     @State private var isDragging = false
     @State private var dragStartPan = CGPoint(x: 0.5, y: 0.5)
+    @State private var isPinching = false
+    @State private var pinchStartZoom: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 12) {
@@ -37,7 +40,11 @@ struct ContentView: View {
                         .scaledToFit()
                         .padding(8)
                         .contentShape(Rectangle())
-                        .gesture(dragToRepositionGesture(viewSize: geo.size))
+                        .gesture(dragToRepositionGesture(viewSize: geo.size).simultaneously(with: pinchToZoomGesture()))
+                        .onHover { hovering in
+                            guard state.mode != .free else { return }
+                            (hovering ? NSCursor.openHand : NSCursor.arrow).set()
+                        }
                 }
             } else {
                 VStack(spacing: 8) {
@@ -60,6 +67,7 @@ struct ContentView: View {
                 if !isDragging {
                     isDragging = true
                     dragStartPan = CGPoint(x: state.position.panX, y: state.position.panY)
+                    NSCursor.closedHand.set()
                 }
                 let dx = value.translation.width / viewSize.width
                 let dy = value.translation.height / viewSize.height
@@ -67,7 +75,27 @@ struct ContentView: View {
                 state.position.panY = min(max(dragStartPan.y - dy, 0), 1)
                 state.rerender()
             }
-            .onEnded { _ in isDragging = false }
+            .onEnded { _ in
+                isDragging = false
+                NSCursor.openHand.set()
+            }
+    }
+
+    // Trackpad pinch-to-zoom: lets the image zoom past "cover" so both axes
+    // overflow the hole and can be panned (see PositionState for why zoom<=1
+    // only ever frees one axis on a non-square image).
+    private func pinchToZoomGesture() -> some Gesture {
+        MagnificationGesture()
+            .onChanged { value in
+                guard state.mode != .free else { return }
+                if !isPinching {
+                    isPinching = true
+                    pinchStartZoom = state.position.zoom
+                }
+                state.position.zoom = min(max(pinchStartZoom * value, 0), PositionState.maxZoom)
+                state.rerender()
+            }
+            .onEnded { _ in isPinching = false }
     }
 
     private var controls: some View {
@@ -103,8 +131,8 @@ struct ContentView: View {
 
     private var positioning: some View {
         VStack {
-            HStack { Text("Zoom"); Slider(value: $state.position.zoom, in: 0...1) }
-            Text("Drag the preview image to reposition").font(.caption).foregroundColor(.secondary)
+            HStack { Text("Zoom"); Slider(value: $state.position.zoom, in: 0...PositionState.maxZoom) }
+            Text("Drag or pinch the preview image to reposition and zoom").font(.caption).foregroundColor(.secondary)
         }
         .onChange(of: state.position) { _ in state.rerender() }
     }

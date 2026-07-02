@@ -30,4 +30,20 @@ final class PositionStateTests: XCTestCase {
         // overflow = 750 - 500 = 250; panX=0 -> offset 0 (left-aligned)
         XCTAssertEqual(placement.origin.x, 0, accuracy: 0.5)
     }
+
+    func testZoomPastCoverAllowsPanningBothAxes() {
+        // At zoom<=1 a non-square image only overflows on one axis (whichever cover's
+        // aspect-locked dimension doesn't exactly fill), so the other axis can't pan.
+        // Past cover (zoom>1) both axes must overflow and both must respond to pan.
+        var state = PositionState.auto
+        state.zoom = 2
+        state.panX = 0
+        state.panY = 0
+        let atStart = state.placement(imageSize: CGSize(width: 600, height: 400), holeSize: CGSize(width: 500, height: 500))
+        state.panX = 1
+        state.panY = 1
+        let atEnd = state.placement(imageSize: CGSize(width: 600, height: 400), holeSize: CGSize(width: 500, height: 500))
+        XCTAssertNotEqual(atStart.origin.x, atEnd.origin.x, "panX should move the image once zoomed past cover")
+        XCTAssertNotEqual(atStart.origin.y, atEnd.origin.y, "panY should move the image once zoomed past cover")
+    }
 }
