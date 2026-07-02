@@ -8,6 +8,7 @@ export const TEMPLATE_SPECS = {
     right: 235,
     bottom: 210,
     bottomRight: 380,
+    wordmarkHeight: 99.455,
   },
   v2: {
     name: 'V2',
@@ -17,5 +18,6 @@ export const TEMPLATE_SPECS = {
     right: 99,
     bottom: 107,
     bottomRight: 325,
+    wordmarkHeight: 84.429,
   },
 };

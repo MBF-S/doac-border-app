@@ -1,5 +1,13 @@
 const DEFAULT_CUSTOM_SIZE_MM = { width: 210, height: 297 };
 
+// The DOAC wordmark must never print smaller than this, regardless of page
+// size or border proportions -- computed against spec.wordmarkHeight (the
+// wordmark's native height in the same SVG-pixel space as spec.left etc.)
+// at the dpi passed to makeLayout. Free mode has no defined print size (its
+// canvas is just the photo's own pixel dimensions), so this floor only
+// applies to page modes (a4/a5/custom) where a physical size is meaningful.
+const MIN_WORDMARK_HEIGHT_MM = 6;
+
 export function makeLayout(mode, imageSize, spec, opts = {}) {
   const {
     customSizeMM = DEFAULT_CUSTOM_SIZE_MM,
@@ -32,7 +40,9 @@ export function makeLayout(mode, imageSize, spec, opts = {}) {
   const canvasWidth = Math.round((mmW / 25.4) * dpi);
   const canvasHeight = Math.round((mmH / 25.4) * dpi);
 
-  const scale = Math.max(pct * Math.min(canvasWidth, canvasHeight), minPx) / spec.left;
+  let scale = Math.max(pct * Math.min(canvasWidth, canvasHeight), minPx) / spec.left;
+  const minScaleForWordmark = (MIN_WORDMARK_HEIGHT_MM / 25.4) * dpi / spec.wordmarkHeight;
+  scale = Math.max(scale, minScaleForWordmark);
   const left = Math.round(spec.left * scale);
   const top = Math.round(spec.top * scale);
   const right = Math.round(spec.right * scale);
