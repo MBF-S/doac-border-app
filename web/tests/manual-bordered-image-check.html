@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8" /><title>borderedImage manual check</title></head>
+<body>
+  <p>Expect two bordered images below: left is Free mode (border hugs a
+     400x300 photo exactly); right is A4 landscape mode (photo placed inside
+     a full A4 page). Both should show a crisp DOAC wordmark bottom-right.</p>
+  <canvas id="free-out"></canvas>
+  <canvas id="a4-out"></canvas>
+  <script type="module">
+    import { makeBorderedImage } from '../js/borderedImage.js';
+
+    function loadImage(url) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = url;
+      });
+    }
+
+    function makeSyntheticPhoto(width, height) {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#99c2e8';
+      ctx.fillRect(0, 0, width, height);
+      return canvas;
+    }
+
+    const spec = { left: 203, top: 190, right: 235, bottom: 210, bottomRight: 380 };
+    const svgImage = await loadImage('../assets/template-v1.svg');
+    const photo = makeSyntheticPhoto(400, 300);
+
+    const freeResult = makeBorderedImage(photo, 'free', spec, svgImage);
+    const freeOut = document.getElementById('free-out');
+    freeOut.width = freeResult.width;
+    freeOut.height = freeResult.height;
+    freeOut.getContext('2d').drawImage(freeResult, 0, 0);
+
+    const a4Result = makeBorderedImage(photo, 'a4', spec, svgImage, { orientation: 'landscape' });
+    const a4Out = document.getElementById('a4-out');
+    a4Out.width = a4Result.width;
+    a4Out.height = a4Result.height;
+    a4Out.getContext('2d').drawImage(a4Result, 0, 0);
+  </script>
+</body>
+</html>
