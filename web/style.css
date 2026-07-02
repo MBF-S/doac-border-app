@@ -150,6 +150,7 @@ main {
 
 button {
   font: inherit;
+  color: inherit;
 }
 
 .button-row button,
