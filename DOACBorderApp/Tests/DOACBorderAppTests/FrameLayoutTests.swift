@@ -36,4 +36,20 @@ final class FrameLayoutTests: XCTestCase {
         let layout = FrameLayout.make(mode: .free, imageSize: CGSize(width: 250, height: 180), spec: .v1)
         XCTAssertEqual(layout.left, 60)
     }
+
+    func testCustomSizeUsesProvidedMillimeters() {
+        // 100x150mm at 300dpi: 100/25.4*300 = 1181.1 -> 1181, 150/25.4*300 = 1771.65 -> 1772.
+        let layout = FrameLayout.make(mode: .custom, imageSize: CGSize(width: 600, height: 400), spec: .v1,
+                                       customSizeMM: (100, 150), orientation: .portrait)
+        XCTAssertEqual(layout.canvasWidth, 1181)
+        XCTAssertEqual(layout.canvasHeight, 1772)
+    }
+
+    func testExplicitOrientationOverridesImageAspect() {
+        // A portrait-shaped image would auto-orient the page portrait; an explicit
+        // .landscape orientation must force the page landscape regardless.
+        let layout = FrameLayout.make(mode: .a4, imageSize: CGSize(width: 300, height: 600), spec: .v1, orientation: .landscape)
+        XCTAssertEqual(layout.canvasWidth, 3508)
+        XCTAssertEqual(layout.canvasHeight, 2480)
+    }
 }

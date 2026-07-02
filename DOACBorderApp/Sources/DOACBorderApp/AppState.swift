@@ -7,6 +7,9 @@ final class AppState: ObservableObject {
     @Published var template: TemplateSpec = .v1
     @Published var mode: PageMode = .free
     @Published var position: PositionState = .auto
+    @Published var orientation: PageOrientation = .portrait
+    @Published var customWidthMM: Double = 210
+    @Published var customHeightMM: Double = 297
     @Published var rendered: CGImage?
     @Published var errorMessage: String?
 
@@ -20,6 +23,7 @@ final class AppState: ObservableObject {
         photoURL = url
         photo = image
         position = .auto
+        orientation = image.width > image.height ? .landscape : .portrait
         rerender()
     }
 
@@ -30,7 +34,8 @@ final class AppState: ObservableObject {
             return
         }
         do {
-            rendered = try BorderedImage.make(photo: photo, mode: mode, spec: template, svgURL: svgURL, position: position)
+            rendered = try BorderedImage.make(photo: photo, mode: mode, spec: template, svgURL: svgURL, position: position,
+                                               customSizeMM: (customWidthMM, customHeightMM), orientation: orientation)
             errorMessage = nil
         } catch {
             errorMessage = "\(error)"

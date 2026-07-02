@@ -39,6 +39,11 @@ struct ContentView: View {
                         .resizable()
                         .scaledToFit()
                         .padding(8)
+                        // GeometryReader doesn't center its child by default (it pins to
+                        // top-leading), and scaledToFit's own reported size shrinks to the
+                        // fitted content box rather than claiming the full proposed space --
+                        // so without this the image sits at the top-left instead of centered.
+                        .frame(width: geo.size.width, height: geo.size.height)
                         .contentShape(Rectangle())
                         .gesture(dragToRepositionGesture(viewSize: geo.size).simultaneously(with: pinchToZoomGesture()))
                         .onHover { hovering in
@@ -112,11 +117,13 @@ struct ContentView: View {
                 Text("Free size").tag(PageMode.free)
                 Text("A4").tag(PageMode.a4)
                 Text("A5").tag(PageMode.a5)
+                Text("Custom").tag(PageMode.custom)
             }
             .pickerStyle(.segmented)
             .onChange(of: state.mode) { _ in state.rerender() }
 
             if state.mode != .free {
+                pageSettings
                 positioning
             }
 
@@ -130,11 +137,32 @@ struct ContentView: View {
     }
 
     private var positioning: some View {
-        VStack {
-            HStack { Text("Zoom"); Slider(value: $state.position.zoom, in: 0...PositionState.maxZoom) }
-            Text("Drag or pinch the preview image to reposition and zoom").font(.caption).foregroundColor(.secondary)
+        Text("Drag or pinch the preview image to reposition and zoom")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    private var pageSettings: some View {
+        VStack(spacing: 8) {
+            if state.mode == .custom {
+                HStack {
+                    Text("Size (mm)")
+                    TextField("Width", value: $state.customWidthMM, format: .number)
+                        .frame(width: 56)
+                        .onChange(of: state.customWidthMM) { _ in state.rerender() }
+                    Text("×")
+                    TextField("Height", value: $state.customHeightMM, format: .number)
+                        .frame(width: 56)
+                        .onChange(of: state.customHeightMM) { _ in state.rerender() }
+                }
+            }
+            Picker("Orientation", selection: $state.orientation) {
+                Text("Portrait").tag(PageOrientation.portrait)
+                Text("Landscape").tag(PageOrientation.landscape)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: state.orientation) { _ in state.rerender() }
         }
-        .onChange(of: state.position) { _ in state.rerender() }
     }
 
     private func chooseFile() {
@@ -153,6 +181,7 @@ struct ContentView: View {
         case .free: suffix = "bordered"
         case .a4: suffix = "a4"
         case .a5: suffix = "a5"
+        case .custom: suffix = "custom"
         }
         let defaultName = sourceURL.deletingPathExtension().lastPathComponent + "_\(suffix).png"
 
